@@ -1,26 +1,47 @@
-# SchemaViz
+# Data Engineering Toolbox
 
-Lightweight SQL schema visualizer that converts `CREATE TABLE` statements
-into interactive ER diagrams.
+A collection of lightweight browser-based tools for working with data, SQL, and developer workflows.
 
-- Parses PostgreSQL / MySQL / SQLite / T-SQL
-- single HTML file
+All tools are designed to be **simple, fast, and dependency-free**.
 
-## Usage
+## Tools
 
-1. Open `index.html`
-2. Paste your `CREATE TABLE` SQL
-3. Click **Visualize**
+### SchemaViz
 
-## Example
+Visualize SQL schemas from `CREATE TABLE` statements as interactive ER diagrams.
 
-```sql
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  name TEXT
-);
+Features:
 
-CREATE TABLE orders (
-  id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id)
-);
+* Supports PostgreSQL, MySQL, SQLite, and T-SQL
+* Interactive diagram/relationship layout
+
+Location:
+
+```
+/schema-viz/index.html
+```
+
+## Philosophy
+
+These tools are designed to be:
+
+* Lightweight
+* Fast to open
+* Easy to use
+* No installation required
+* Fully client-side
+
+Perfect for quick data engineering tasks without needing heavy software.
+
+
+## Running the tools
+
+Clone the repository and open any tool directly in your browser.
+
+Example:
+
+```
+schema-viz/index.html
+```
+
+No build step or dependencies required.
