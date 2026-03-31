@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchemaViz — SQL ER Diagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c23;
+    --border: #232830;
+    --border2: #2e3540;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #2a3545;
+    --accent: #38bdf8;
+    --fk: #a78bfa;
+    --pk: #fbbf24;
+    --green: #34d399;
+    --red: #f87171;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  body { font-family: var(--mono); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 11px 18px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0; z-index: 20;
+  }
+  .logo { font-family: var(--display); font-weight: 800; font-size: 14px; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #0a0c10; font-weight: 800; }
+  .tag { font-size: 9px; padding: 2px 7px; border-radius: 99px; border: 1px solid var(--border2); color: var(--text-muted); letter-spacing: 0.6px; text-transform: uppercase; }
+  .header-stats { margin-left: auto; display: flex; gap: 20px; font-size: 11px; color: var(--text-muted); }
+  .stat { display: flex; align-items: center; gap: 5px; }
+  .stat-val { color: var(--text); font-weight: 600; }
+
+  .workspace { display: flex; flex: 1; overflow: hidden; }
+
+  .left-panel { width: 300px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface); }
+  .panel-title { padding: 9px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+  .pdot { width: 6px; height: 6px; border-radius: 50%; }
+
+  textarea { flex: 1; background: transparent; border: none; outline: none; resize: none; font-family: var(--mono); font-size: 10.5px; color: var(--text); padding: 12px 14px; line-height: 1.75; caret-color: var(--accent); min-height: 0; }
+  textarea::placeholder { color: var(--text-dim); }
+
+  .panel-actions { padding: 9px 12px; display: flex; gap: 7px; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+  button { font-family: var(--mono); font-size: 11px; cursor: pointer; border-radius: 6px; border: 1px solid transparent; transition: all 0.14s; font-weight: 500; padding: 7px 12px; }
+  .btn-primary { background: var(--accent); color: #0a0c10; flex: 1; }
+  .btn-primary:hover { background: #7dd3fc; }
+  .btn-ghost { background: transparent; border-color: var(--border2); color: var(--text-muted); }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+
+  .table-list { overflow-y: auto; max-height: 200px; }
+  .table-list::-webkit-scrollbar { width: 3px; }
+  .table-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .tl-item { padding: 6px 14px; font-size: 11px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted); border-left: 2px solid transparent; transition: all 0.1s; }
+  .tl-item:hover { background: var(--surface2); color: var(--text); border-left-color: var(--accent); }
+  .tl-badge { font-size: 8px; font-weight: 700; padding: 1px 4px; border-radius: 3px; text-transform: uppercase; }
+  .tl-pk { background: rgba(251,191,36,0.15); color: var(--pk); }
+  .tl-fk { background: rgba(167,139,250,0.15); color: var(--fk); }
+
+  /* CANVAS */
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: grab; }
+  .canvas-wrap.panning { cursor: grabbing; }
+  .canvas-wrap::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.032) 1px, transparent 1px);
+    background-size: 28px 28px; pointer-events: none; z-index: 0;
+  }
+
+  /* CRITICAL: SVG is z-index 3 — ABOVE canvas (z-index 2) so arrows NEVER hide behind tables */
+  #svg-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 3; overflow: visible;
+  }
+
+  #canvas { position: absolute; top: 0; left: 0; z-index: 2; transform-origin: 0 0; }
+
+  /* TABLE NODES */
+  .db-table {
+    position: absolute; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 10px; min-width: 200px; max-width: 270px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45); cursor: grab; user-select: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .db-table:hover { border-color: rgba(56,189,248,0.45); box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(56,189,248,0.12); }
+  .db-table.is-dragging { cursor: grabbing; z-index: 100; border-color: var(--accent); box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(56,189,248,0.3); }
+
+  .tbl-header { padding: 8px 11px; background: var(--surface); border-bottom: 1px solid var(--border); border-radius: 9px 9px 0 0; display: flex; align-items: center; gap: 7px; }
+  .tbl-icon { color: var(--accent); font-size: 10px; opacity: 0.6; flex-shrink: 0; }
+  .tbl-name { font-family: var(--display); font-weight: 700; font-size: 11.5px; color: var(--text); flex: 1; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tbl-col-count { font-size: 9px; color: var(--text-muted); background: var(--surface2); padding: 1px 5px; border-radius: 99px; border: 1px solid var(--border2); flex-shrink: 0; }
+
+  .tbl-cols { padding: 4px 0 5px; }
+  .col-row { display: flex; align-items: center; gap: 6px; padding: 3px 11px; font-size: 10px; transition: background 0.1s; }
+  .col-row:hover { background: rgba(255,255,255,0.02); }
+  .col-badge { font-size: 7px; font-weight: 700; padding: 1px 4px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.2px; flex-shrink: 0; width: 20px; text-align: center; }
+  .badge-pk { background: rgba(251,191,36,0.18); color: var(--pk); border: 1px solid rgba(251,191,36,0.28); }
+  .badge-fk { background: rgba(167,139,250,0.18); color: var(--fk); border: 1px solid rgba(167,139,250,0.28); }
+  .badge-empty { width: 20px; flex-shrink: 0; }
+  .col-name { flex: 1; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-name.pk { color: var(--pk); }
+  .col-name.fk { color: var(--fk); }
+  .col-type { font-size: 9px; color: var(--text-muted); text-transform: uppercase; flex-shrink: 0; }
+  .col-null { font-size: 8px; color: var(--text-dim); flex-shrink: 0; width: 8px; }
+
+  /* LAYOUT TOOLBAR */
+  .toolbar {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 3px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 4px; z-index: 10;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .layout-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent;
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    transition: all 0.12s; font-size: 9px; min-width: 52px;
+    letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .layout-btn .lb-icon { font-size: 14px; line-height: 1; }
+  .layout-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  .layout-btn.active { background: rgba(56,189,248,0.1); color: var(--accent); border-color: rgba(56,189,248,0.28); }
+  .tb-sep { width: 1px; height: 28px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+  /* ZOOM */
+  .zoom-controls { position: absolute; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+  .zoom-btn { width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text-muted); border-radius: 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.12s; padding: 0; }
+  .zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* LEGEND */
+  .legend { position: absolute; bottom: 16px; left: 16px; display: flex; gap: 14px; font-size: 10px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; z-index: 10; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* EMPTY */
+  .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; pointer-events: none; z-index: 1; }
+  .empty-glyph { font-size: 40px; opacity: 0.08; }
+  .empty-title { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text-muted); opacity: 0.3; }
+  .empty-sub { font-size: 11px; color: var(--text-dim); text-align: center; max-width: 260px; line-height: 1.7; }
+
+  /* TOAST */
+  .toast { position: fixed; top: 56px; right: 16px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 14px; font-size: 11px; color: var(--text); z-index: 9999; transform: translateX(130%); transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1); max-width: 240px; }
+  .toast.show { transform: translateX(0); }
+  .toast.ok { border-color: var(--green); color: var(--green); }
+  .toast.err { border-color: var(--red); color: var(--red); }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">⬡</div>SchemaViz</div>
+  <span class="tag">ER Diagram</span>
+  <div class="header-stats">
+    <div class="stat">Tables <span class="stat-val" id="st-tables">0</span></div>
+    <div class="stat">Columns <span class="stat-val" id="st-cols">0</span></div>
+    <div class="stat">Relations <span class="stat-val" id="st-rels">0</span></div>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="left-panel">
+    <div class="panel-title"><div class="pdot" style="background:var(--accent)"></div>SQL Input</div>
+    <textarea id="sql-input" placeholder="-- Paste CREATE TABLE statements
+-- PostgreSQL · MySQL · SQLite · T-SQL
+"></textarea>
+    <div class="panel-actions">
+      <button class="btn-ghost" id="btn-clear">Clear</button>
+      <button class="btn-primary" id="btn-viz">Visualize →</button>
+    </div>
+    <div class="panel-title"><div class="pdot" style="background:var(--fk)"></div>Tables</div>
+    <div class="table-list" id="table-list"></div>
+  </div>
+
+  <div class="canvas-wrap" id="canvas-wrap">
+    <!-- SVG z-index:3 sits ABOVE canvas z-index:2 — arrows always visible -->
+    <svg id="svg-layer"></svg>
+    <div id="canvas"></div>
+
+    <div class="toolbar" id="toolbar" style="display:none">
+      <button class="layout-btn active" data-layout="smart"><span class="lb-icon">✦</span>Smart</button>
+      <button class="layout-btn" data-layout="tree"><span class="lb-icon">⇒</span>Tree</button>
+      <div class="tb-sep"></div>
+      <button class="layout-btn" data-layout="grid"><span class="lb-icon">⊞</span>Grid</button>
+      <button class="layout-btn" data-layout="compact"><span class="lb-icon">▣</span>Compact</button>
+      <div class="tb-sep"></div>
+      <button class="layout-btn" data-layout="circle"><span class="lb-icon">◎</span>Circle</button>
+    </div>
+
+    <div class="empty-state" id="empty-state">
+      <div class="empty-glyph">◈</div>
+      <div class="empty-title">No schema loaded</div>
+      <div class="empty-sub">Paste your CREATE TABLE SQL and click Visualize</div>
+    </div>
+
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="btn-zoomin">+</button>
+      <button class="zoom-btn" id="btn-fit" title="Fit all (F)">⊡</button>
+      <button class="zoom-btn" id="btn-zoomout">−</button>
+    </div>
+
+    <div class="legend" id="legend" style="display:none">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--pk)"></div>PK</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--fk)"></div>FK</div>
+      <div class="legend-item" style="gap:6px">
+        <svg width="24" height="10" style="overflow:visible;flex-shrink:0">
+          <circle cx="3" cy="5" r="3" fill="rgba(56,189,248,0.65)"/>
+          <line x1="6" y1="5" x2="18" y2="5" stroke="rgba(167,139,250,0.7)" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="16,2 16,8 24,5" fill="rgba(167,139,250,0.85)"/>
+        </svg>
+        Relation
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  PARSER
+// ═══════════════════════════════════════════════════════
+
+function parseSQL(sql) {
+  const tables = [], relations = [];
+  sql = sql.replace(/--[^\n]*/g,' ').replace(/\/\*[\s\S]*?\*\//g,' ');
+
+  const tRx = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"\[]?(\w+)[`"\]]?\s*\(([\s\S]*?)\)\s*;/gi;
+  let m;
+  while ((m = tRx.exec(sql)) !== null) {
+    const tName = m[1], body = m[2];
+    const columns = [], tablePKs = new Set();
+
+    const pkM = body.match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+    if (pkM) pkM[1].split(',').forEach(c => tablePKs.add(c.trim().replace(/[`"\[\]]/g,'').toLowerCase()));
+
+    const fkRx = /FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+[`"\[]?(\w+)[`"\]]?\s*\(([^)]+)\)/gi;
+    let fkm;
+    while ((fkm = fkRx.exec(body)) !== null)
+      relations.push({ from: tName, fromCol: fkm[1].trim().replace(/[`"\[\]]/g,''), to: fkm[2], toCol: fkm[3].trim().replace(/[`"\[\]]/g,'') });
+
+    for (const line of splitCols(body)) {
+      const l = line.trim();
+      if (!l || /^(CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY\s|CHECK\s)/i.test(l)) continue;
+      const cm = l.match(/^[`"\[]?(\w+)[`"\]]?\s+(\w+)/i);
+      if (!cm) continue;
+      const colName = cm[1], colType = cm[2].toUpperCase();
+      const lup = l.toUpperCase();
+      const isPK = lup.includes('PRIMARY KEY') || colType==='SERIAL' || colType==='BIGSERIAL' || tablePKs.has(colName.toLowerCase());
+      const refM = l.match(/REFERENCES\s+[`"\[]?(\w+)[`"\]]?\s*\(([^)]+)\)/i);
+      let isFk = false;
+      if (refM) { isFk=true; relations.push({ from: tName, fromCol: colName, to: refM[1], toCol: refM[2].trim() }); }
+      columns.push({ name: colName, type: normType(colType), isPK, isFk, notNull: lup.includes('NOT NULL')||isPK });
+    }
+    if (tName) tables.push({ name: tName, columns });
+  }
+
+  const seen = new Set();
+  return {
+    tables,
+    relations: relations.filter(r => {
+      const k = `${r.from}.${r.fromCol}->${r.to}.${r.toCol}`;
+      return seen.has(k) ? false : (seen.add(k), true);
+    })
+  };
+}
+
+function splitCols(body) {
+  const parts=[]; let d=0, cur='';
+  for (const ch of body) {
+    if (ch==='(') d++;
+    else if (ch===')') d--;
+    else if (ch===','&&d===0) { parts.push(cur); cur=''; continue; }
+    cur+=ch;
+  }
+  if (cur.trim()) parts.push(cur);
+  return parts;
+}
+
+function normType(t) {
+  return t.replace('CHARACTER VARYING','VARCHAR').replace('DOUBLE PRECISION','FLOAT8')
+          .replace('TIMESTAMP WITHOUT TIME ZONE','TIMESTAMP').replace('TIMESTAMP WITH TIME ZONE','TIMESTAMPTZ');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════
+//  LAYOUT ENGINES
+// ═══════════════════════════════════════════════════════
+
+const LAYOUTS = {
+
+  // Smart: topological sort by FK dependency depth
+  smart(tables, relations) {
+    const pos={}, deps={};
+    tables.forEach(t => deps[t.name] = new Set());
+    relations.forEach(r => { if (deps[r.from]) deps[r.from].add(r.to); });
+
+    // Assign depth: tables with no dependencies get depth 0
+    const depth={};
+    function getDepth(name, stack=new Set()) {
+      if (depth[name]!==undefined) return depth[name];
+      if (stack.has(name)) return 0;
+      stack.add(name);
+      const parents = [...(deps[name]||new Set())];
+      depth[name] = parents.length ? 1 + Math.max(...parents.map(p=>getDepth(p,new Set(stack)))) : 0;
+      return depth[name];
+    }
+    tables.forEach(t => getDepth(t.name));
+
+    const byDepth={};
+    tables.forEach(t => { const d=depth[t.name]||0; (byDepth[d]=byDepth[d]||[]).push(t); });
+    const maxD = Math.max(...Object.keys(byDepth).map(Number));
+    const colW=290, rowH=170;
+
+    Object.entries(byDepth).forEach(([d,ts]) => {
+      const col = maxD - Number(d);
+      ts.forEach((t,i) => { pos[t.name] = { x: 40+col*colW, y: 40+i*rowH }; });
+    });
+    return pos;
+  },
+
+  // Tree: like smart but vertically centred per column
+  tree(tables, relations) {
+    const pos = LAYOUTS.smart(tables, relations);
+    const cols={};
+    Object.entries(pos).forEach(([n,p]) => { (cols[p.x]=cols[p.x]||[]).push(n); });
+    const H = document.getElementById('canvas-wrap').offsetHeight || 600;
+    Object.values(cols).forEach(names => {
+      const sp = Math.min(190, Math.max(130, (H-80)/Math.max(names.length,1)));
+      names.forEach((n,i) => { pos[n].y = 40+i*sp; });
+    });
+    return pos;
+  },
+
+  // Grid: uniform NxM
+  grid(tables) {
+    const pos={}, cols=Math.ceil(Math.sqrt(tables.length));
+    tables.forEach((t,i) => { pos[t.name]={ x:40+(i%cols)*280, y:40+Math.floor(i/cols)*180 }; });
+    return pos;
+  },
+
+  // Compact: denser grid
+  compact(tables) {
+    const pos={}, cols=Math.ceil(Math.sqrt(tables.length*1.4));
+    tables.forEach((t,i) => { pos[t.name]={ x:20+(i%cols)*225, y:20+Math.floor(i/cols)*145 }; });
+    return pos;
+  },
+
+  // Circle
+  circle(tables) {
+    const pos={}, n=tables.length;
+    if (!n) return pos;
+    const W=document.getElementById('canvas-wrap').offsetWidth||900;
+    const H=document.getElementById('canvas-wrap').offsetHeight||600;
+    const cx=W/2-110, cy=H/2-60;
+    const r=Math.min(cx,cy)*0.78;
+    tables.forEach((t,i) => {
+      const a=(2*Math.PI*i/n)-Math.PI/2;
+      pos[t.name]={ x:cx+r*Math.cos(a)-105, y:cy+r*Math.sin(a)-50 };
+    });
+    return pos;
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+
+let schema = { tables:[], relations:[] };
+let nodes  = {};
+let vp     = { x:0, y:0, scale:1 };
+let currentLayout = 'smart';
+let panState=null, dragState=null;
+let rafPending=false;
+
+const canvas     = document.getElementById('canvas');
+const svgLayer   = document.getElementById('svg-layer');
+const canvasWrap = document.getElementById('canvas-wrap');
+const emptyState = document.getElementById('empty-state');
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+
+function render(layoutName) {
+  currentLayout = layoutName || currentLayout;
+  canvas.innerHTML = '';
+  svgLayer.innerHTML = '';
+  nodes = {};
+
+  const has = schema.tables.length > 0;
+  emptyState.style.display = has ? 'none' : 'flex';
+  document.getElementById('legend').style.display  = has ? 'flex'  : 'none';
+  document.getElementById('toolbar').style.display = has ? 'flex'  : 'none';
+  updateStats(); updateTableList();
+  if (!has) return;
+
+  const positions = (LAYOUTS[currentLayout] || LAYOUTS.smart)(schema.tables, schema.relations);
+  applyVP();
+
+  schema.tables.forEach(table => {
+    const pos = positions[table.name] || { x:40, y:40 };
+    const el = document.createElement('div');
+    el.className = 'db-table';
+    el.dataset.table = table.name;
+    el.style.left = pos.x + 'px';
+    el.style.top  = pos.y + 'px';
+
+    el.innerHTML = `
+      <div class="tbl-header">
+        <span class="tbl-icon">▣</span>
+        <span class="tbl-name" title="${esc(table.name)}">${esc(table.name)}</span>
+        <span class="tbl-col-count">${table.columns.length}</span>
+      </div>
+      <div class="tbl-cols">
+        ${table.columns.map(col=>`
+          <div class="col-row" data-col="${esc(col.name)}">
+            ${col.isPK?'<span class="col-badge badge-pk">PK</span>':col.isFk?'<span class="col-badge badge-fk">FK</span>':'<span class="badge-empty"></span>'}
+            <span class="col-name ${col.isPK?'pk':col.isFk?'fk':''}">${esc(col.name)}</span>
+            <span class="col-type">${esc(col.type)}</span>
+            <span class="col-null">${col.notNull?'':'?'}</span>
+          </div>`).join('')}
+      </div>`;
+
+    canvas.appendChild(el);
+    nodes[table.name] = { x:pos.x, y:pos.y, w:0, h:0, el };
+
+    el.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      el.classList.add('is-dragging');
+      const n = nodes[table.name];
+      dragState = { name:table.name, sx:e.clientX, sy:e.clientY, ox:n.x, oy:n.y };
+    });
+  });
+
+  requestAnimationFrame(() => {
+    schema.tables.forEach(t => {
+      const n = nodes[t.name];
+      if (n?.el) { n.w = n.el.offsetWidth; n.h = n.el.offsetHeight; }
+    });
+    drawRelations();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  ARROW DRAWING
+//  - SVG is z-index:3, always above tables (z-index:2)
+//  - Uses getBoundingClientRect for pixel-perfect coords
+//  - Picks best port side per-relation based on geometry
+//  - Staggers multiple relations between same pair
+// ═══════════════════════════════════════════════════════
+
+function drawRelations() {
+  svgLayer.innerHTML = `
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0,1 L0,7 L9,4 z" fill="rgba(167,139,250,0.9)"/>
+      </marker>
+      <marker id="dot" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+        <circle cx="4" cy="4" r="3" fill="rgba(56,189,248,0.7)"/>
+      </marker>
+    </defs>`;
+
+  const wR = canvasWrap.getBoundingClientRect();
+
+  // Count relations per pair for stagger offset
+  const pairCount={}, pairIdx={};
+  schema.relations.forEach(r => {
+    const k=[r.from,r.to].sort().join('|');
+    pairCount[k]=(pairCount[k]||0)+1;
+  });
+  Object.keys(pairCount).forEach(k => pairIdx[k]=0);
+
+  schema.relations.forEach(rel => {
+    const fn = nodes[rel.from], tn = nodes[rel.to];
+    if (!fn?.el || !tn?.el) return;
+
+    // Get pixel rects relative to canvas-wrap
+    const fR = fn.el.getBoundingClientRect();
+    const tR = tn.el.getBoundingClientRect();
+
+    const f = {
+      l: fR.left-wR.left, r: fR.right-wR.left,
+      t: fR.top-wR.top,   b: fR.bottom-wR.top,
+      cx: fR.left-wR.left+fR.width/2, cy: fR.top-wR.top+fR.height/2
+    };
+    const t = {
+      l: tR.left-wR.left, r: tR.right-wR.left,
+      t: tR.top-wR.top,   b: tR.bottom-wR.top,
+      cx: tR.left-wR.left+tR.width/2, cy: tR.top-wR.top+tR.height/2
+    };
+
+    // Y of specific column row (or vertical centre as fallback)
+    const colY = (node, colName, rect) => {
+      const rowEl = node.el.querySelector(`.col-row[data-col="${colName}"]`);
+      if (rowEl) {
+        const rr = rowEl.getBoundingClientRect();
+        return rr.top - wR.top + rr.height/2;
+      }
+      return rect.cy;
+    };
+
+    const pairKey = [rel.from,rel.to].sort().join('|');
+    const total   = pairCount[pairKey];
+    const idx     = pairIdx[pairKey]++;
+    const stagger = (idx - (total-1)/2) * 16;
+
+    const y1 = colY(fn, rel.fromCol, f) + stagger;
+    const y2 = colY(tn, rel.toCol,   t) + stagger;
+
+    const dx = t.cx - f.cx;
+    const dy = t.cy - f.cy;
+
+    // ── Port selection: pick sides that give shortest, cleanest path ──
+    // Option A: right-of-from → left-of-to
+    // Option B: left-of-from  → right-of-to
+    // Option C: same-side loop (tables stacked vertically)
+    let x1, x2, cpx1, cpx2;
+
+    const hGap   = t.l - f.r;  // space between right of from and left of to
+    const hGapRev = f.l - t.r; // space if reversed
+
+    if (hGap >= -20) {
+      // from is left of to → right → left
+      x1=f.r; x2=t.l;
+    } else if (hGapRev >= -20) {
+      // from is right of to → left → right
+      x1=f.l; x2=t.r;
+    } else {
+      // Overlapping horizontally — route out from the nearest free side
+      const leftFree  = Math.min(f.l, t.l);
+      const rightFree = canvasWrap.offsetWidth - Math.max(f.r, t.r);
+      if (leftFree >= rightFree) { x1=f.l; x2=t.l; }
+      else                        { x1=f.r; x2=t.r; }
+    }
+
+    // Control points: pull outward relative to each port side
+    const hd = Math.abs(x2-x1);
+    const pull = Math.max(55, hd*0.42);
+    const d1 = x1===f.r ? 1 : -1;
+    const d2 = x2===t.l ? -1 : 1;
+    cpx1 = x1 + d1*pull;
+    cpx2 = x2 + d2*pull;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', `M${x1},${y1} C${cpx1},${y1} ${cpx2},${y2} ${x2},${y2}`);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','rgba(167,139,250,0.6)');
+    path.setAttribute('stroke-width','1.8');
+    path.setAttribute('stroke-dasharray','6,4');
+    path.setAttribute('marker-end','url(#arr)');
+    path.setAttribute('marker-start','url(#dot)');
+    svgLayer.appendChild(path);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  VIEWPORT
+// ═══════════════════════════════════════════════════════
+
+function applyVP(redraw=true) {
+  canvas.style.transform = `translate(${vp.x}px,${vp.y}px) scale(${vp.scale})`;
+  canvas.style.transformOrigin = '0 0';
+  if (redraw) drawRelations();
+}
+
+function fitAll() {
+  if (!schema.tables.length) return;
+  const wrap = canvasWrap.getBoundingClientRect();
+  const ns = Object.values(nodes).filter(n=>n.w>0);
+  if (!ns.length) { setTimeout(fitAll,60); return; }
+  const minX=Math.min(...ns.map(n=>n.x)), minY=Math.min(...ns.map(n=>n.y));
+  const maxX=Math.max(...ns.map(n=>n.x+n.w)), maxY=Math.max(...ns.map(n=>n.y+n.h));
+  const pad=60, cw=maxX-minX+pad*2, ch=maxY-minY+pad*2;
+  vp.scale = Math.min(wrap.width/cw, wrap.height/ch, 1.5);
+  vp.x = (wrap.width -cw*vp.scale)/2 - (minX-pad)*vp.scale;
+  vp.y = (wrap.height-ch*vp.scale)/2 - (minY-pad)*vp.scale;
+  applyVP();
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATS / LIST
+// ═══════════════════════════════════════════════════════
+
+function updateStats() {
+  document.getElementById('st-tables').textContent = schema.tables.length;
+  document.getElementById('st-cols').textContent   = schema.tables.reduce((a,t)=>a+t.columns.length,0);
+  document.getElementById('st-rels').textContent   = schema.relations.length;
+}
+
+function updateTableList() {
+  const list = document.getElementById('table-list');
+  list.innerHTML='';
+  schema.tables.forEach(t => {
+    const pk=t.columns.filter(c=>c.isPK).length, fk=t.columns.filter(c=>c.isFk).length;
+    const d=document.createElement('div');
+    d.className='tl-item';
+    d.innerHTML=`<span style="color:var(--accent);font-size:10px;flex-shrink:0">▣</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span>
+      <span style="display:flex;gap:4px;flex-shrink:0">
+        ${pk?`<span class="tl-badge tl-pk">PK${pk>1?'×'+pk:''}</span>`:''}
+        ${fk?`<span class="tl-badge tl-fk">FK${fk>1?'×'+fk:''}</span>`:''}
+      </span>`;
+    d.addEventListener('click',()=>{
+      const n=nodes[t.name]; if(!n) return;
+      const wr=canvasWrap.getBoundingClientRect();
+      vp.x=wr.width/2-n.x*vp.scale-(n.w||220)*vp.scale/2;
+      vp.y=wr.height/2-n.y*vp.scale-(n.h||120)*vp.scale/2;
+      applyVP();
+    });
+    list.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════════
+
+document.getElementById('btn-viz').addEventListener('click', () => {
+  const sql = document.getElementById('sql-input').value.trim();
+  if (!sql) { toast('Paste some SQL first','err'); return; }
+  vp={x:0,y:0,scale:1};
+  schema = parseSQL(sql);
+  if (!schema.tables.length) { toast('No CREATE TABLE statements found','err'); return; }
+  render(currentLayout);
+  setTimeout(fitAll,80);
+  toast(`${schema.tables.length} table${schema.tables.length>1?'s':''}, ${schema.relations.length} relation${schema.relations.length!==1?'s':''}`, 'ok');
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  document.getElementById('sql-input').value='';
+  schema={tables:[],relations:[]};
+  render();
+});
+
+// Layout buttons
+document.querySelectorAll('.layout-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layout-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    vp={x:0,y:0,scale:1};
+    render(btn.dataset.layout);
+    setTimeout(fitAll,80);
+  });
+});
+
+// Pan
+canvasWrap.addEventListener('mousedown', e => {
+  if (e.target.closest('.db-table,.toolbar,.zoom-controls,.legend')) return;
+  panState={ sx:e.clientX,sy:e.clientY,ox:vp.x,oy:vp.y };
+  canvasWrap.classList.add('panning');
+});
+
+window.addEventListener('mousemove', e => {
+  if (dragState) {
+    const n=nodes[dragState.name];
+    n.x = dragState.ox + (e.clientX-dragState.sx)/vp.scale;
+    n.y = dragState.oy + (e.clientY-dragState.sy)/vp.scale;
+    n.el.style.left=n.x+'px'; n.el.style.top=n.y+'px';
+    if (!rafPending) { rafPending=true; requestAnimationFrame(()=>{ drawRelations(); rafPending=false; }); }
+    return;
+  }
+  if (panState) {
+    vp.x=panState.ox+(e.clientX-panState.sx);
+    vp.y=panState.oy+(e.clientY-panState.sy);
+    canvas.style.transform=`translate(${vp.x}px,${vp.y}px) scale(${vp.scale})`;
+    if (!rafPending) { rafPending=true; requestAnimationFrame(()=>{ drawRelations(); rafPending=false; }); }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (dragState) { nodes[dragState.name]?.el.classList.remove('is-dragging'); dragState=null; }
+  if (panState)  { canvasWrap.classList.remove('panning'); panState=null; }
+});
+
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d=e.deltaY>0?0.88:1.14;
+  const r=canvasWrap.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const old=vp.scale;
+  vp.scale=Math.min(Math.max(vp.scale*d,0.08),4);
+  vp.x=mx-(mx-vp.x)*(vp.scale/old);
+  vp.y=my-(my-vp.y)*(vp.scale/old);
+  applyVP();
+},{passive:false});
+
+document.getElementById('btn-zoomin').addEventListener('click',  ()=>{ vp.scale=Math.min(vp.scale*1.2,4); applyVP(); });
+document.getElementById('btn-zoomout').addEventListener('click', ()=>{ vp.scale=Math.max(vp.scale*0.8,0.08); applyVP(); });
+document.getElementById('btn-fit').addEventListener('click', fitAll);
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName==='TEXTAREA') return;
+  if (e.key==='f'||e.key==='F') fitAll();
+  if (e.key==='+'||e.key==='=') { vp.scale=Math.min(vp.scale*1.15,4); applyVP(); }
+  if (e.key==='-')               { vp.scale=Math.max(vp.scale*0.85,0.08); applyVP(); }
+});
+
+let _tt;
+function toast(msg,type='') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show'+(type?' '+type:'');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.className='toast',2800);
+}
+
+// ═══════════════════════════════════════════════════════
+//  DEMO
+// ═══════════════════════════════════════════════════════
+
+const DEMO = `CREATE TABLE customers (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  stock INT DEFAULT 0
+);
+
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  customer_id INT NOT NULL REFERENCES customers(id),
+  created_at TIMESTAMP DEFAULT NOW(),
+  status VARCHAR(50) DEFAULT 'pending'
+);
+
+CREATE TABLE order_items (
+  id SERIAL PRIMARY KEY,
+  order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(10,2) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);`;
+
+document.getElementById('sql-input').value = DEMO;
+schema = parseSQL(DEMO);
+render('smart');
+setTimeout(fitAll, 100);
+</script>
+</body>
+</html>
