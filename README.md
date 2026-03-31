@@ -34,14 +34,6 @@ These tools are designed to be:
 Perfect for quick data engineering tasks without needing heavy software.
 
 
-## Running the tools
+## Access
 
-Clone the repository and open any tool directly in your browser.
-
-Example:
-
-```
-schema-viz/index.html
-```
-
-No build step or dependencies required.
+https://lewydavy.github.io/data-toolbox/
