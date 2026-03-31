@@ -3,66 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Engineering Toolbox</title>
+    <title>Data Toolbox</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #09090b; color: #fafafa; font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body { background-color: #020203; color: #fafafa; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        
+        /* The Central Core Visual */
+        #toolbox-core {
+            transform-origin: center;
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+
+        /* Tool Cards */
         .tool-card {
-            background: #18181b;
-            border: 1px solid #27272a;
-            transition: all 0.2s ease;
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid #1f1f22;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
         }
-        .tool-card:hover {
-            border-color: #3f3f46;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+
+        /* Hover States on Active Tools */
+        .tool-card:not(.coming-soon):hover {
+            border-color: #3b82f6;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.3);
+            background: rgba(24, 24, 27, 0.9);
         }
-        .coming-soon { opacity: 0.5; cursor: not-allowed; border-style: dashed; }
+
+        /* Circuit Line Effect */
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: 50%; width: 1px; height: 0;
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0) 0%, rgba(59, 130, 246, 1) 100%);
+            transition: all 0.4s ease 0.1s;
+            z-index: -1;
+            opacity: 0;
+        }
+
+        .tool-card:not(.coming-soon):hover::before {
+            height: 120px;
+            top: -120px;
+            opacity: 1;
+        }
+        
+        /* Pulse the core visual when a tool is hovered */
+        .tools-container.hover-glow #toolbox-core {
+            filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.4));
+            transform: scale(1.05);
+        }
+
+        /* Placeholders */
+        .coming-soon { opacity: 0.3; border-style: dashed; cursor: not-allowed;}
+        .coming-soon:hover { background: transparent; transform: none; box-shadow: none;}
     </style>
 </head>
-<body class="p-8 md:p-24">
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-16">
-            <h1 class="text-4xl font-bold tracking-tight mb-4">Data Engineering Toolbox</h1>
-            <p class="text-zinc-400 text-lg max-w-2xl">
-                A collection of lightweight, browser-based utilities for data workflows. 
-                No installs, no tracking, just tools.
-            </p>
+<body class="p-8 md:p-16">
+    <div class="max-w-6xl mx-auto">
+        
+        <header class="mb-20 text-center flex flex-col items-center">
+            
+            <div class="relative mb-6 mt-4">
+                <div class="absolute -inset-10 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
+                
+                <div id="toolbox-core" class="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
+                    <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
+                        <defs>
+                            <linearGradient id="boxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#1e3a8a" />
+                                <stop offset="100%" stop-color="#0f172a" />
+                            </linearGradient>
+                            <linearGradient id="lidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#2563eb" />
+                                <stop offset="100%" stop-color="#1d4ed8" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M110 85 V50 C110 40 115 35 125 35 H175 C185 35 190 40 190 50 V85" fill="none" stroke="#475569" stroke-width="16" stroke-linecap="round" />
+                        <rect x="40" y="110" width="220" height="130" rx="12" fill="url(#boxGrad)" stroke="#3b82f6" stroke-width="2"/>
+                        <rect x="30" y="80" width="240" height="40" rx="8" fill="url(#lidGrad)" stroke="#60a5fa" stroke-width="2"/>
+                        <rect x="80" y="100" width="16" height="40" rx="4" fill="#94a3b8" stroke="#475569" stroke-width="1"/>
+                        <rect x="204" y="100" width="16" height="40" rx="4" fill="#94a3b8" stroke="#475569" stroke-width="1"/>
+                        <g transform="translate(150, 175)">
+                            <path d="M-30 -10 C-30 0 30 0 30 -10 V10 C30 20 -30 20 -30 10 Z" fill="#0284c7"/>
+                            <path d="M-30 -25 C-30 -15 30 -15 30 -25 V-5 C30 5 -30 5 -30 -5 Z" fill="#0ea5e9"/>
+                            <ellipse cx="0" cy="-25" rx="30" ry="10" fill="#38bdf8" />
+                            <ellipse cx="0" cy="-25" rx="20" ry="5" fill="none" stroke="#bae6fd" stroke-width="2" opacity="0.8"/>
+                        </g>
+                        <path d="M 95 160 L 80 175 L 95 190" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+                        <path d="M 205 160 L 220 175 L 205 190" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="relative mt-4">
+                <h1 class="text-6xl font-extrabold tracking-tighter mb-4 text-white">
+                    Data <span class="text-blue-500">Toolbox</span>
+                </h1>
+                <p class="text-zinc-400 text-lg max-w-2xl mx-auto italic border-l-2 border-blue-600 pl-6">
+                    Lightweight, single-file utilities for SQL, data management, and developer workflows.
+                </p>
+            </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            <a href="schema-viz/index.html" class="tool-card p-6 rounded-xl block group">
-                <div class="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center mb-4 text-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M21 9H3"/><path d="M21 15H3"/><path d="M12 3v18"/></svg>
-                </div>
-                <h3 class="text-xl font-semibold mb-2 group-hover:text-blue-400">SchemaViz</h3>
-                <p class="text-zinc-400 text-sm mb-4">Visualize SQL CREATE TABLE statements into interactive ER diagrams instantly.</p>
-                <span class="text-xs font-medium px-2 py-1 bg-zinc-800 rounded uppercase tracking-wider text-zinc-300">Launch Tool →</span>
-            </a>
+        <div id="tools-section" class="tools-container relative mt-16">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <a href="schema-viz/index.html" class="tool-card active-tool group p-8 rounded-2xl block">
+                    <div class="w-12 h-12 bg-blue-950 border border-blue-700 rounded-xl flex items-center justify-center mb-6 text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M21 9H3"/><path d="M21 15H3"/><path d="M12 3v18"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3 text-white tracking-tight group-hover:text-blue-400 transition-colors">SchemaViz</h3>
+                    <p class="text-zinc-400 text-base leading-relaxed mb-6">Instantly convert SQL CREATE TABLE statements into interactive ER diagrams entirely in your browser.</p>
+                    <span class="inline-flex items-center text-sm font-semibold text-blue-400 tracking-wide uppercase">
+                        Launch Utility <span class="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                    </span>
+                </a>
 
-            <div class="tool-card coming-soon p-6 rounded-xl">
-                <div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
+                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">JSON Formatter</h3>
+                    <p class="text-zinc-600 text-sm">Validating, Tree View, Minifying.</p>
                 </div>
-                <h3 class="text-xl font-semibold mb-2 italic">JSON Formatter</h3>
-                <p class="text-zinc-500 text-sm">Coming soon: Clean, tree-view formatting for messy API responses.</p>
+
+                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
+                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">CSV Converter</h3>
+                    <p class="text-zinc-600 text-sm">Instant CSV ⇋ JSON ⇋ SQL Inserts.</p>
+                </div>
+
             </div>
-
-            <div class="tool-card coming-soon p-6 rounded-xl">
-                <div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center mb-4 text-zinc-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
-                </div>
-                <h3 class="text-xl font-semibold mb-2 italic">CSV Converter</h3>
-                <p class="text-zinc-500 text-sm">Coming soon: Instant conversion between CSV, JSON, and SQL Inserts.</p>
-            </div>
-
         </div>
 
-        <footer class="mt-24 pt-8 border-t border-zinc-800 text-zinc-500 text-sm flex justify-between items-center">
-            <p>© 2024 DE Toolbox — Built for speed.</p>
-            <a href="https://github.com/your-username/your-repo" class="hover:text-white transition-colors">View on GitHub</a>
+        <footer class="mt-28 pt-10 border-t border-zinc-900 text-zinc-600 text-sm flex justify-between items-center">
+            <p>© 2024 Data Toolbox — Browser-based Engineering Utilities.</p>
+            <a href="https://github.com/your-username/your-repo" class="hover:text-blue-500 transition-colors">Source Code</a>
         </footer>
     </div>
+
+    <script>
+        const toolsSection = document.getElementById('tools-section');
+        const activeTools = document.querySelectorAll('.active-tool');
+
+        activeTools.forEach(tool => {
+            tool.addEventListener('mouseover', () => {
+                toolsSection.classList.add('hover-glow');
+            });
+            tool.addEventListener('mouseout', () => {
+                toolsSection.classList.remove('hover-glow');
+            });
+        });
+    </script>
 </body>
 </html>
