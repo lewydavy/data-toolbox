@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BatchFlow — Local Pipeline Runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:       #0d0f11;
+  --s1:       #131618;
+  --s2:       #1a1d21;
+  --s3:       #21262c;
+  --border:   #272d34;
+  --border2:  #323a44;
+  --text:     #cdd5de;
+  --muted:    #556170;
+  --dim:      #2a3240;
+  --amber:    #f59e0b;
+  --amber-d:  rgba(245,158,11,0.12);
+  --green:    #10b981;
+  --green-d:  rgba(16,185,129,0.12);
+  --red:      #ef4444;
+  --red-d:    rgba(239,68,68,0.1);
+  --blue:     #38bdf8;
+  --purple:   #a78bfa;
+  --mono:     'IBM Plex Mono', monospace;
+  --head:     'Barlow Condensed', sans-serif;
+}
+
+body { font-family:var(--mono); background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-size:12px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  display:flex; align-items:center; gap:12px;
+  padding:0 18px; height:46px;
+  background:var(--s1); border-bottom:1px solid var(--border);
+  flex-shrink:0; z-index:20;
+}
+.logo { font-family:var(--head); font-weight:700; font-size:17px; letter-spacing:0.5px; color:var(--text); display:flex; align-items:center; gap:9px; }
+.logo-mark { background:var(--amber); color:#0d0f11; width:26px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+.logo-sub { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-family:var(--mono); font-weight:400; }
+
+.topbar-stats { display:flex; gap:18px; margin-left:auto; }
+.tstat { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:5px; }
+.tstat-val { color:var(--text); font-weight:600; font-size:11px; }
+
+.topbar-actions { display:flex; gap:6px; margin-left:16px; }
+
+button { font-family:var(--mono); cursor:pointer; border-radius:5px; border:1px solid transparent; transition:all 0.13s; font-size:11px; font-weight:500; }
+.btn { padding:5px 11px; background:transparent; border-color:var(--border2); color:var(--muted); }
+.btn:hover { border-color:var(--text); color:var(--text); }
+.btn-amber { background:var(--amber); color:#0d0f11; border-color:var(--amber); padding:5px 14px; font-weight:600; }
+.btn-amber:hover { background:#fbbf24; }
+.btn-green { background:var(--green); color:#0d0f11; border-color:var(--green); padding:5px 14px; font-weight:600; }
+.btn-green:hover { background:#34d399; }
+.btn-sm { padding:3px 8px; font-size:10px; }
+.btn-icon { padding:4px 8px; font-size:13px; line-height:1; }
+
+/* ── WORKSPACE ── */
+.workspace { display:flex; flex:1; overflow:hidden; }
+
+/* ── LEFT PANEL ── */
+.left { width:280px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--s1); }
+
+.panel-hdr { padding:9px 14px; font-family:var(--head); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.panel-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+/* DROP ZONE */
+.dropzone {
+  margin:12px; border:1.5px dashed var(--border2); border-radius:8px;
+  padding:20px 14px; text-align:center; cursor:pointer;
+  transition:all 0.15s; flex-shrink:0;
+  background:var(--s2);
+}
+.dropzone:hover, .dropzone.drag-over { border-color:var(--amber); background:var(--amber-d); }
+.dropzone-icon { font-size:22px; margin-bottom:7px; opacity:0.4; }
+.dropzone-text { font-size:10px; color:var(--muted); line-height:1.6; }
+.dropzone-text strong { color:var(--amber); }
+#file-input { display:none; }
+
+/* FILE LIST */
+.file-list { flex:1; overflow-y:auto; min-height:0; }
+.file-list::-webkit-scrollbar { width:3px; }
+.file-list::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+.file-item {
+  padding:7px 14px; display:flex; align-items:center; gap:8px;
+  border-bottom:1px solid var(--border); cursor:pointer;
+  transition:background 0.1s; border-left:2px solid transparent;
+}
+.file-item:hover { background:var(--s2); }
+.file-item.selected { background:var(--s2); border-left-color:var(--amber); }
+.fi-icon { font-size:11px; flex-shrink:0; opacity:0.7; }
+.fi-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--text); }
+.fi-type { font-size:8.5px; padding:1px 5px; border-radius:3px; flex-shrink:0; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
+.type-xml  { background:rgba(167,139,250,0.15); color:var(--purple); }
+.type-json { background:rgba(245,158,11,0.15); color:var(--amber); }
+.type-csv  { background:rgba(16,185,129,0.15); color:var(--green); }
+.type-txt  { background:rgba(205,213,222,0.1); color:var(--muted); }
+.fi-status { font-size:10px; flex-shrink:0; }
+
+.file-item .fi-remove { opacity:0; font-size:12px; color:var(--muted); padding:0 2px; background:none; border:none; cursor:pointer; }
+.file-item:hover .fi-remove { opacity:0.5; }
+.file-item .fi-remove:hover { opacity:1; color:var(--red); }
+
+/* SAVED JOBS */
+.jobs-section { border-top:1px solid var(--border); flex-shrink:0; }
+.job-list { max-height:130px; overflow-y:auto; }
+.job-item { padding:6px 14px; display:flex; align-items:center; gap:7px; font-size:10.5px; cursor:pointer; color:var(--muted); border-left:2px solid transparent; transition:all 0.1s; }
+.job-item:hover { background:var(--s2); color:var(--text); border-left-color:var(--amber); }
+.job-item .ji-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.job-item .ji-del { opacity:0; font-size:10px; padding:0 2px; background:none; border:none; cursor:pointer; color:var(--muted); }
+.job-item:hover .ji-del { opacity:0.5; }
+.job-item .ji-del:hover { opacity:1; color:var(--red); }
+.no-jobs { padding:10px 14px; font-size:10px; color:var(--dim); font-style:italic; }
+
+/* ── MAIN PANEL ── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* RULES SECTION */
+.rules-section { flex-shrink:0; border-bottom:1px solid var(--border); }
+
+.rules-header {
+  padding:9px 16px; display:flex; align-items:center; gap:10px;
+  background:var(--s1); border-bottom:1px solid var(--border);
+}
+.rules-title { font-family:var(--head); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); flex:1; }
+
+.rules-grid { max-height:260px; overflow-y:auto; }
+.rules-grid::-webkit-scrollbar { width:3px; }
+.rules-grid::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* column headers */
+.rules-cols {
+  display:grid;
+  grid-template-columns: 28px 1fr 1.2fr 1fr 130px 70px 32px;
+  gap:0; padding:6px 14px 5px;
+  font-size:9px; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted);
+  border-bottom:1px solid var(--border); background:var(--s2);
+  position:sticky; top:0; z-index:2;
+}
+
+.rule-row {
+  display:grid;
+  grid-template-columns: 28px 1fr 1.2fr 1fr 130px 70px 32px;
+  gap:0; padding:5px 14px;
+  border-bottom:1px solid var(--border); align-items:center;
+  transition:background 0.1s;
+}
+.rule-row:hover { background:var(--s2); }
+
+.rule-row input, .rule-row select {
+  font-family:var(--mono); font-size:10.5px; background:var(--s3);
+  border:1px solid var(--border); color:var(--text); border-radius:4px;
+  padding:4px 7px; outline:none; width:100%; transition:border-color 0.12s;
+}
+.rule-row input:focus, .rule-row select:focus { border-color:var(--amber); }
+.rule-row input::placeholder { color:var(--dim); }
+.rule-row select { cursor:pointer; }
+select option { background:var(--s3); color:var(--text); }
+
+.rule-num { font-size:9px; color:var(--dim); text-align:center; }
+
+.rule-aliases-wrap { position:relative; }
+.aliases-hint { position:absolute; right:6px; top:50%; transform:translateY(-50%); font-size:8px; color:var(--muted); pointer-events:none; opacity:0.6; }
+
+.rule-del { background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:0; text-align:center; }
+.rule-del:hover { color:var(--red); }
+
+.rule-row .regex-input { display:none; }
+.rule-row.has-regex .regex-input { display:block; }
+.rule-row.has-regex .transform-sel { margin-bottom:3px; }
+
+.transform-cell { display:flex; flex-direction:column; gap:3px; }
+
+.empty-rules {
+  padding:24px 16px; text-align:center; color:var(--muted);
+  font-size:11px; border-bottom:1px solid var(--border);
+}
+.empty-rules-hint { font-size:10px; color:var(--dim); margin-top:4px; }
+
+/* AUTO-DETECT PANEL */
+.autodetect-bar {
+  padding:8px 14px; background:var(--amber-d); border-bottom:1px solid rgba(245,158,11,0.2);
+  display:none; align-items:flex-start; gap:10px;
+}
+.autodetect-bar.visible { display:flex; }
+.ad-label { font-size:9px; text-transform:uppercase; letter-spacing:0.8px; color:var(--amber); flex-shrink:0; padding-top:2px; }
+.ad-fields { display:flex; flex-wrap:wrap; gap:5px; flex:1; }
+.ad-chip {
+  font-size:9.5px; padding:2px 8px; border-radius:99px; cursor:pointer;
+  background:var(--s3); border:1px solid var(--border2); color:var(--muted);
+  transition:all 0.12s;
+}
+.ad-chip:hover { border-color:var(--amber); color:var(--amber); background:var(--amber-d); }
+
+/* RESULTS SECTION */
+.results-section { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+.results-header {
+  padding:9px 16px; display:flex; align-items:center; gap:10px;
+  background:var(--s1); border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.results-title { font-family:var(--head); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); flex:1; }
+.results-count { font-size:10px; color:var(--muted); }
+
+.results-table-wrap { flex:1; overflow:auto; }
+.results-table-wrap::-webkit-scrollbar { width:4px; height:4px; }
+.results-table-wrap::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+.results-table { width:100%; border-collapse:collapse; font-size:10.5px; }
+.results-table th {
+  position:sticky; top:0; z-index:2;
+  padding:7px 12px; text-align:left; background:var(--s2);
+  border-bottom:1px solid var(--border2); color:var(--muted);
+  font-size:9px; text-transform:uppercase; letter-spacing:0.7px;
+  white-space:nowrap; font-weight:500;
+}
+.results-table th.col-filename { color:var(--amber); }
+.results-table td { padding:5px 12px; border-bottom:1px solid var(--border); color:var(--text); white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+.results-table tr:hover td { background:var(--s2); }
+.td-empty { color:var(--dim) !important; font-style:italic; }
+.td-date { color:var(--green); }
+.td-num { color:var(--blue); font-variant-numeric:tabular-nums; }
+.td-filename { color:var(--muted); font-size:10px; }
+
+/* EMPTY / LOADING STATES */
+.state-empty {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  flex:1; gap:10px; color:var(--dim);
+}
+.state-empty-icon { font-size:32px; opacity:0.12; }
+.state-empty-title { font-family:var(--head); font-size:14px; font-weight:600; color:var(--muted); opacity:0.3; }
+.state-empty-sub { font-size:10px; color:var(--dim); text-align:center; max-width:260px; line-height:1.7; }
+
+.progress-bar-wrap { padding:12px 16px; border-top:1px solid var(--border); flex-shrink:0; display:none; }
+.progress-bar-wrap.visible { display:block; }
+.pb-label { font-size:10px; color:var(--muted); margin-bottom:5px; display:flex; justify-content:space-between; }
+.pb-track { height:3px; background:var(--border2); border-radius:99px; overflow:hidden; }
+.pb-fill { height:100%; background:var(--amber); border-radius:99px; transition:width 0.2s; width:0%; }
+
+/* TOAST */
+.toast { position:fixed; bottom:18px; right:18px; background:var(--s2); border:1px solid var(--border2); border-radius:7px; padding:9px 14px; font-size:11px; color:var(--text); z-index:9999; transform:translateY(20px); opacity:0; transition:all 0.2s; max-width:280px; pointer-events:none; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.ok { border-color:var(--green); color:var(--green); }
+.toast.err { border-color:var(--red); color:var(--red); }
+.toast.warn { border-color:var(--amber); color:var(--amber); }
+
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:50; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.15s; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:20px 22px; width:320px; }
+.modal-title { font-family:var(--head); font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; }
+.modal input { width:100%; font-family:var(--mono); font-size:11px; background:var(--s3); border:1px solid var(--border2); color:var(--text); border-radius:5px; padding:7px 10px; outline:none; margin-bottom:12px; }
+.modal input:focus { border-color:var(--amber); }
+.modal-actions { display:flex; gap:7px; justify-content:flex-end; }
+
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">⇶</div>
+    BatchFlow
+    <span class="logo-sub">Pipeline Runner</span>
+  </div>
+  <div class="topbar-stats">
+    <div class="tstat">Files <span class="tstat-val" id="st-files">0</span></div>
+    <div class="tstat">Rules <span class="tstat-val" id="st-rules">0</span></div>
+    <div class="tstat">Rows <span class="tstat-val" id="st-rows">0</span></div>
+    <div class="tstat">Errors <span class="tstat-val" id="st-errors" style="color:var(--red)">0</span></div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn" id="btn-save-job">Save Job</button>
+    <button class="btn" id="btn-export-json">Export JSON</button>
+    <button class="btn" id="btn-export-csv">Export CSV</button>
+    <button class="btn-amber" id="btn-run">▶ Run</button>
+  </div>
+</div>
+
+<div class="workspace">
+
+  <!-- LEFT: FILES + JOBS -->
+  <div class="left">
+    <div class="panel-hdr"><div class="panel-dot" style="background:var(--amber)"></div>Input Files</div>
+
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="file-input" multiple accept=".xml,.json,.csv,.txt,.log">
+      <div class="dropzone-icon">⇩</div>
+      <div class="dropzone-text">
+        <strong>Drop files here</strong><br>
+        or click to browse<br>
+        XML · JSON · CSV · TXT
+      </div>
+    </div>
+
+    <div class="file-list" id="file-list"></div>
+
+    <div class="jobs-section">
+      <div class="panel-hdr" style="cursor:pointer" id="jobs-toggle">
+        <div class="panel-dot" style="background:var(--muted)"></div>
+        Saved Jobs
+        <span style="margin-left:auto;font-size:9px" id="jobs-toggle-icon">▾</span>
+      </div>
+      <div class="job-list" id="job-list">
+        <div class="no-jobs" id="no-jobs-msg">No saved jobs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- AUTO-DETECT BAR -->
+    <div class="autodetect-bar" id="autodetect-bar">
+      <div class="ad-label">Detected<br>Fields</div>
+      <div class="ad-fields" id="ad-fields"></div>
+    </div>
+
+    <!-- RULES -->
+    <div class="rules-section">
+      <div class="rules-header">
+        <span class="rules-title">Field Mapping Rules</span>
+        <button class="btn btn-sm" id="btn-clear-rules">Clear</button>
+        <button class="btn btn-sm" id="btn-add-rule">+ Add Rule</button>
+      </div>
+      <div class="rules-grid">
+        <div class="rules-cols">
+          <div>#</div>
+          <div>Output Column</div>
+          <div>Source Path</div>
+          <div>Aliases <span style="opacity:0.5">(fallbacks)</span></div>
+          <div>Transform</div>
+          <div>Default</div>
+          <div></div>
+        </div>
+        <div id="rules-list">
+          <div class="empty-rules" id="empty-rules-msg">
+            No rules defined
+            <div class="empty-rules-hint">Add a rule or load a saved job to get started</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-section">
+      <div class="results-header">
+        <span class="results-title">Results Preview</span>
+        <span class="results-count" id="results-count"></span>
+      </div>
+      <div class="results-table-wrap" id="results-wrap">
+        <div class="state-empty" id="state-empty">
+          <div class="state-empty-icon">⇶</div>
+          <div class="state-empty-title">No results yet</div>
+          <div class="state-empty-sub">Add files and rules, then click Run</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="pb-label"><span id="pb-label-text">Processing…</span><span id="pb-pct">0%</span></div>
+        <div class="pb-track"><div class="pb-fill" id="pb-fill"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE JOB MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">Save Job</div>
+    <input type="text" id="job-name-input" placeholder="e.g. SE Tool XML Extractions" maxlength="50">
+    <div class="modal-actions">
+      <button class="btn" id="modal-cancel">Cancel</button>
+      <button class="btn-amber" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+
+let files    = [];   // { name, type, content, raw }
+let rules    = [];   // { id, outputCol, path, aliases, transform, defaultVal, regexPat }
+let results  = [];   // [ { _filename, _type, col: val, ... } ]
+let ruleId   = 0;
+let runCount = 0;
+
+// Store empty state element ONCE — getElementById returns null after
+// wrap.innerHTML='' detaches it from DOM on the first run
+const emptyStateEl = document.getElementById('state-empty');
+
+// ═══════════════════════════════════════════════════════
+//  FILE HANDLING
+// ═══════════════════════════════════════════════════════
+
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+async function handleFiles(fileList) {
+  const toAdd = [...fileList];
+  for (const f of toAdd) {
+    if (files.find(x => x.name === f.name)) continue; // skip dupes
+    const raw  = await f.text();
+    const type = detectType(f.name, raw);
+    files.push({ name: f.name, type, raw, parsed: null });
+  }
+  renderFileList();
+  updateStats();
+  autoDetectFields();
+}
+
+function detectType(name, content) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'xml') return 'xml';
+  if (ext === 'json') return 'json';
+  if (ext === 'csv') return 'csv';
+  if (ext === 'tsv') return 'csv';
+  // Sniff content
+  const t = content.trimStart();
+  if (t.startsWith('<')) return 'xml';
+  if (t.startsWith('{') || t.startsWith('[')) return 'json';
+  if (t.includes(',') && t.split('\n')[0].includes(',')) return 'csv';
+  return 'txt';
+}
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  el.innerHTML = '';
+  if (!files.length) return;
+  files.forEach((f, i) => {
+    const d = document.createElement('div');
+    d.className = 'file-item';
+    d.innerHTML = `
+      <span class="fi-icon">${typeIcon(f.type)}</span>
+      <span class="fi-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="fi-type type-${f.type}">${f.type}</span>
+      <button class="fi-remove" data-i="${i}" title="Remove">✕</button>`;
+    el.appendChild(d);
+  });
+  el.querySelectorAll('.fi-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      files.splice(+btn.dataset.i, 1);
+      renderFileList(); updateStats(); autoDetectFields();
+    });
+  });
+}
+
+function typeIcon(t) {
+  return {xml:'◈',json:'{}',csv:'≡',txt:'¶'}[t] || '·';
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTO-DETECT FIELDS
+// ═══════════════════════════════════════════════════════
+
+function autoDetectFields() {
+  const bar = document.getElementById('autodetect-bar');
+  const container = document.getElementById('ad-fields');
+
+  if (!files.length) { bar.classList.remove('visible'); return; }
+
+  const detected = new Set();
+
+  for (const f of files.slice(0, 3)) { // scan first 3 files
+    try {
+      if (f.type === 'xml') {
+        const doc = new DOMParser().parseFromString(f.raw, 'text/xml');
+        const all = doc.querySelectorAll('*');
+        all.forEach(el => {
+          if (el.children.length === 0 && el.textContent.trim())
+            detected.add(el.tagName);
+        });
+      } else if (f.type === 'json') {
+        const obj = JSON.parse(f.raw);
+        flattenKeys(Array.isArray(obj) ? obj[0] : obj, '').forEach(k => detected.add(k));
+      } else if (f.type === 'csv') {
+        const lines = f.raw.split('\n');
+        if (lines[0]) lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,'')).forEach(h => detected.add(h));
+      }
+    } catch(e) {}
+    if (detected.size > 40) break;
+  }
+
+  if (!detected.size) { bar.classList.remove('visible'); return; }
+
+  bar.classList.add('visible');
+  container.innerHTML = '';
+  [...detected].slice(0, 35).forEach(field => {
+    const chip = document.createElement('span');
+    chip.className = 'ad-chip';
+    chip.textContent = field;
+    chip.title = `Click to add rule for "${field}"`;
+    chip.addEventListener('click', () => {
+      addRule({ path: field, outputCol: camelToSnake(field) });
+      toast(`Added rule: ${field}`, 'ok');
+    });
+    container.appendChild(chip);
+  });
+}
+
+function flattenKeys(obj, prefix, depth=0) {
+  if (depth > 3 || !obj || typeof obj !== 'object') return [];
+  const keys = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const full = prefix ? `${prefix}.${k}` : k;
+    keys.push(full);
+    if (v && typeof v === 'object' && !Array.isArray(v)) keys.push(...flattenKeys(v, full, depth+1));
+  }
+  return keys;
+}
+
+function camelToSnake(s) {
+  return s.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/,'').replace(/[.\-\s]/g,'_');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RULES
+// ═══════════════════════════════════════════════════════
+
+const TRANSFORMS = [
+  ['none',    'None (raw)'],
+  ['trim',    'Trim whitespace'],
+  ['date',    'Normalise date → ISO'],
+  ['upper',   'UPPERCASE'],
+  ['lower',   'lowercase'],
+  ['number',  'Parse number'],
+  ['boolean', 'Normalise boolean'],
+  ['regex',   'Regex extract'],
+  ['filename','Include filename'],
+];
+
+function addRule(defaults={}) {
+  const id = ++ruleId;
+  rules.push({
+    id,
+    outputCol:  defaults.outputCol  || '',
+    path:       defaults.path       || '',
+    aliases:    defaults.aliases    || '',
+    transform:  defaults.transform  || 'none',
+    defaultVal: defaults.defaultVal || '',
+    regexPat:   defaults.regexPat   || '',
+  });
+  renderRules();
+  updateStats();
+}
+
+function renderRules() {
+  const list = document.getElementById('rules-list');
+  const emptyMsg = document.getElementById('empty-rules-msg');
+
+  if (!rules.length) {
+    list.innerHTML = '';
+    list.appendChild(emptyMsg);
+    return;
+  }
+
+  list.innerHTML = '';
+  rules.forEach((rule, i) => {
+    const row = document.createElement('div');
+    row.className = 'rule-row' + (rule.transform === 'regex' ? ' has-regex' : '');
+    row.dataset.id = rule.id;
+
+    row.innerHTML = `
+      <div class="rule-num">${i+1}</div>
+      <div>
+        <input type="text" class="r-outcol" placeholder="output_col" value="${esc(rule.outputCol)}" title="Output column name">
+      </div>
+      <div>
+        <input type="text" class="r-path" placeholder="path / tag / key" value="${esc(rule.path)}" title="XML tag, JSON path (a.b.c), or CSV column header">
+      </div>
+      <div class="rule-aliases-wrap">
+        <input type="text" class="r-aliases" placeholder="alt1, alt2…" value="${esc(rule.aliases)}" title="Comma-separated fallback paths if primary not found">
+      </div>
+      <div class="transform-cell">
+        <select class="r-transform transform-sel" title="Transform applied to extracted value">
+          ${TRANSFORMS.map(([v,l]) => `<option value="${v}" ${rule.transform===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <input type="text" class="r-regex regex-input" placeholder="/pattern/(group)" value="${esc(rule.regexPat)}" title="Regex pattern. Use capturing group e.g. (\\d+)">
+      </div>
+      <div>
+        <input type="text" class="r-default" placeholder="—" value="${esc(rule.defaultVal)}" title="Default if field not found or empty">
+      </div>
+      <button class="rule-del" title="Remove rule">✕</button>`;
+
+    // wire events
+    row.querySelector('.r-outcol').addEventListener('input',    e => { rules[i].outputCol  = e.target.value; updateStats(); });
+    row.querySelector('.r-path').addEventListener('input',      e => { rules[i].path       = e.target.value; });
+    row.querySelector('.r-aliases').addEventListener('input',   e => { rules[i].aliases    = e.target.value; });
+    row.querySelector('.r-default').addEventListener('input',   e => { rules[i].defaultVal = e.target.value; });
+    row.querySelector('.r-transform').addEventListener('change',e => {
+      rules[i].transform = e.target.value;
+      row.className = 'rule-row' + (e.target.value === 'regex' ? ' has-regex' : '');
+    });
+    const regexIn = row.querySelector('.r-regex');
+    if (regexIn) regexIn.addEventListener('input', e => { rules[i].regexPat = e.target.value; });
+
+    row.querySelector('.rule-del').addEventListener('click', () => {
+      rules.splice(i, 1);
+      renderRules(); updateStats();
+    });
+
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('btn-add-rule').addEventListener('click', () => addRule());
+document.getElementById('btn-clear-rules').addEventListener('click', () => { rules=[]; renderRules(); updateStats(); });
+
+// ═══════════════════════════════════════════════════════
+//  PARSERS
+// ═══════════════════════════════════════════════════════
+
+function parseFile(f) {
+  try {
+    if (f.type === 'xml')  return { ok:true, data: new DOMParser().parseFromString(f.raw, 'text/xml') };
+    if (f.type === 'json') return { ok:true, data: JSON.parse(f.raw) };
+    if (f.type === 'csv')  return { ok:true, data: parseCSV(f.raw) };
+    if (f.type === 'txt')  return { ok:true, data: f.raw };
+  } catch(e) { return { ok:false, err: e.message }; }
+  return { ok:true, data: f.raw };
+}
+
+function parseCSV(raw) {
+  const lines = raw.split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+  const headers = splitCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = splitCSVLine(line);
+    const row = {};
+    headers.forEach((h,i) => row[h.trim()] = (vals[i]||'').trim());
+    return row;
+  });
+}
+
+function splitCSVLine(line) {
+  const cols = []; let cur = '', inQ = false;
+  for (let i=0; i<line.length; i++) {
+    const c = line[i];
+    if (c==='"') { inQ=!inQ; continue; }
+    if (c===',' && !inQ) { cols.push(cur); cur=''; continue; }
+    cur+=c;
+  }
+  cols.push(cur);
+  return cols;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXTRACTION ENGINE
+// ═══════════════════════════════════════════════════════
+
+function extractFromFile(parsed, type, rule) {
+  const paths = [rule.path, ...rule.aliases.split(',').map(s=>s.trim()).filter(Boolean)];
+
+  for (const p of paths) {
+    if (!p) continue;
+    let val = '';
+    if (type === 'xml')  val = extractXML(parsed, p);
+    if (type === 'json') val = extractJSON(parsed, p);
+    if (type === 'csv')  val = ''; // handled per-row
+    if (type === 'txt')  val = extractText(parsed, p);
+    if (val !== null && val !== undefined && val !== '') return applyTransform(String(val), rule);
+  }
+  return rule.defaultVal || '';
+}
+
+// XML: try exact tag name search (recursive), then path with /
+function extractXML(doc, path) {
+  if (!doc) return '';
+  // Handle attribute: tag@attr
+  const attrMatch = path.match(/^(.+)@(\w+)$/);
+  if (attrMatch) {
+    const tags = doc.getElementsByTagName(attrMatch[1]);
+    if (tags.length) return tags[0].getAttribute(attrMatch[2]) || '';
+  }
+  // Handle slash path
+  if (path.includes('/')) {
+    const parts = path.split('/');
+    let nodes = [doc];
+    for (const p of parts) {
+      if (!p) continue;
+      const next = [];
+      nodes.forEach(n => { if (n.getElementsByTagName) next.push(...n.getElementsByTagName(p)); });
+      nodes = next;
+    }
+    return nodes.length ? nodes[0].textContent?.trim() || '' : '';
+  }
+  // Simple tag name
+  const tags = doc.getElementsByTagName(path);
+  if (tags.length) return tags[0].textContent?.trim() || '';
+  // Case-insensitive fallback
+  const allTags = doc.querySelectorAll('*');
+  for (const el of allTags) {
+    if (el.tagName.toLowerCase() === path.toLowerCase() && !el.children.length)
+      return el.textContent?.trim() || '';
+  }
+  return '';
+}
+
+// JSON: dot notation, bracket notation, array[0]
+function extractJSON(obj, path) {
+  if (!path) return '';
+  if (Array.isArray(obj)) {
+    // For JSON arrays, run on first element to check structure; actual per-row handled below
+    obj = obj[0];
+  }
+  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null) return '';
+    cur = cur[p];
+  }
+  if (cur === null || cur === undefined) return '';
+  if (typeof cur === 'object') return JSON.stringify(cur);
+  return String(cur);
+}
+
+// Text: regex search
+function extractText(text, pattern) {
+  try {
+    const rx = new RegExp(pattern, 'im');
+    const m = rx.exec(text);
+    return m ? (m[1] !== undefined ? m[1] : m[0]) : '';
+  } catch { return ''; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TRANSFORMS
+// ═══════════════════════════════════════════════════════
+
+function applyTransform(val, rule) {
+  if (!val && val !== 0) return rule.defaultVal || '';
+  const s = String(val).trim();
+
+  switch (rule.transform) {
+    case 'trim':    return s.trim();
+    case 'upper':   return s.toUpperCase();
+    case 'lower':   return s.toLowerCase();
+    case 'number':  return parseNumber(s);
+    case 'boolean': return parseBoolean(s);
+    case 'date':    return normaliseDate(s);
+    case 'regex':   return applyRegex(s, rule.regexPat);
+    case 'filename':return ''; // filled separately
+    default:        return s;
+  }
+}
+
+function parseNumber(s) {
+  const cleaned = s.replace(/[^0-9.\-]/g, '');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? '' : String(n);
+}
+
+function parseBoolean(s) {
+  const l = s.toLowerCase().trim();
+  if (['true','yes','y','1','on'].includes(l))  return 'true';
+  if (['false','no','n','0','off'].includes(l)) return 'false';
+  return s;
+}
+
+function applyRegex(s, pattern) {
+  if (!pattern) return s;
+  try {
+    const clean = pattern.replace(/^\//, '').replace(/\/[gimsuy]*$/, '');
+    const flags = (pattern.match(/\/([gimsuy]*)$/) || ['',''])[1];
+    const rx = new RegExp(clean, flags || 'i');
+    const m = rx.exec(s);
+    if (!m) return '';
+    return m[1] !== undefined ? m[1] : m[0];
+  } catch { return s; }
+}
+
+// Date normalisation — handles a wide range of formats
+function normaliseDate(s) {
+  if (!s) return '';
+  s = s.trim();
+
+  // Already ISO
+  if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(s)) return s.slice(0, 10);
+
+  // Unix timestamp (10 or 13 digits)
+  if (/^\d{10}$/.test(s)) return new Date(parseInt(s)*1000).toISOString().slice(0,10);
+  if (/^\d{13}$/.test(s)) return new Date(parseInt(s)).toISOString().slice(0,10);
+
+  // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  let m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (m) { const [,d,mo,y] = m; return `${y}-${pad(mo)}-${pad(d)}`; }
+
+  // MM/DD/YYYY (US) — heuristic: if day > 12 it must be DD/MM
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) {
+    let [,a,b,y] = m;
+    if (y.length === 2) y = +y < 50 ? '20'+y : '19'+y;
+    if (+a > 12) return `${y}-${pad(b)}-${pad(a)}`;
+    return `${y}-${pad(a)}-${pad(b)}`;
+  }
+
+  // YYYY/MM/DD
+  m = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (m) { const [,y,mo,d] = m; return `${y}-${pad(mo)}-${pad(d)}`; }
+
+  // "15 Jan 2024" or "15 January 2024"
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (m) { const [,d,mon,y] = m; const mo=monthNum(mon); return mo ? `${y}-${pad(mo)}-${pad(d)}` : s; }
+
+  // "Jan 15, 2024" or "January 15 2024"
+  m = s.match(/^([A-Za-z]+)\s+(\d{1,2})[,\s]+(\d{4})$/);
+  if (m) { const [,mon,d,y] = m; const mo=monthNum(mon); return mo ? `${y}-${pad(mo)}-${pad(d)}` : s; }
+
+  // Try native Date as last resort
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0,10);
+
+  return s; // couldn't parse, return original
+}
+
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+function monthNum(s) { const i = MONTHS.indexOf(s.slice(0,3).toLowerCase()); return i >= 0 ? i+1 : null; }
+function pad(n) { return String(n).padStart(2,'0'); }
+
+// ═══════════════════════════════════════════════════════
+//  RUN
+// ═══════════════════════════════════════════════════════
+
+async function runPipeline() {
+  if (!files.length)  { toast('Add some files first', 'warn'); return; }
+  const activeRules = rules.filter(r => r.path || r.transform === 'filename');
+  if (!activeRules.length) { toast('Add at least one rule', 'warn'); return; }
+
+  results = [];
+  let errors = 0;
+  runCount++;
+
+  const pbWrap = document.getElementById('progress-wrap');
+  const pbFill = document.getElementById('pb-fill');
+  const pbLabel = document.getElementById('pb-label-text');
+  const pbPct   = document.getElementById('pb-pct');
+  pbWrap.classList.add('visible');
+
+  for (let fi = 0; fi < files.length; fi++) {
+    const f = files[fi];
+    const pct = Math.round((fi / files.length) * 100);
+    pbFill.style.width = pct + '%';
+    pbLabel.textContent = `Processing ${f.name}…`;
+    pbPct.textContent = pct + '%';
+
+    // Yield to UI
+    await new Promise(r => setTimeout(r, 0));
+
+    const parsed = parseFile(f);
+    if (!parsed.ok) { errors++; continue; }
+
+    const data = parsed.data;
+
+    // JSON arrays and CSV arrays → one row per element
+    if ((f.type === 'json' && Array.isArray(data)) || (f.type === 'csv' && Array.isArray(data))) {
+      const items = data;
+      items.forEach(item => {
+        const row = { _filename: f.name, _type: f.type };
+        activeRules.forEach(rule => {
+          const col = rule.outputCol || rule.path || `col${rule.id}`;
+          if (rule.transform === 'filename') { row[col] = f.name; return; }
+          if (f.type === 'csv') {
+            const paths = [rule.path, ...rule.aliases.split(',').map(s=>s.trim()).filter(Boolean)];
+            let val = '';
+            for (const p of paths) { if (item[p] !== undefined) { val=String(item[p]); break; } }
+            row[col] = val ? applyTransform(val, rule) : (rule.defaultVal||'');
+          } else {
+            // JSON row
+            const paths2 = [rule.path, ...rule.aliases.split(',').map(s=>s.trim()).filter(Boolean)];
+            let val2 = '';
+            for (const p of paths2) { const v=extractJSON(item,p); if(v!=='') { val2=v; break; } }
+            row[col] = val2 ? applyTransform(val2, rule) : (rule.defaultVal||'');
+          }
+        });
+        results.push(row);
+      });
+    } else {
+      // Single-document files (XML, single JSON object, text)
+      const row = { _filename: f.name, _type: f.type };
+      activeRules.forEach(rule => {
+        const col = rule.outputCol || rule.path || `col${rule.id}`;
+        if (rule.transform === 'filename') { row[col] = f.name; return; }
+        row[col] = extractFromFile(data, f.type, rule);
+      });
+      results.push(row);
+    }
+  }
+
+  pbFill.style.width = '100%';
+  pbPct.textContent = '100%';
+  setTimeout(() => pbWrap.classList.remove('visible'), 800);
+
+  renderResults();
+  updateStats(errors);
+  toast(`Done — ${results.length} row${results.length!==1?'s':''} from ${files.length} file${files.length!==1?'s':''}${errors?` (${errors} errors)`:''}`, errors ? 'warn' : 'ok');
+}
+
+document.getElementById('btn-run').addEventListener('click', runPipeline);
+
+// ═══════════════════════════════════════════════════════
+//  RESULTS RENDERING
+// ═══════════════════════════════════════════════════════
+
+function renderResults() {
+  const wrap = document.getElementById('results-wrap');
+
+  if (!results.length) {
+    // Use stored reference — getElementById returns null after first run
+    // removes emptyStateEl from the DOM via wrap.innerHTML=''
+    wrap.innerHTML = '';
+    emptyStateEl.style.display = 'flex';
+    wrap.appendChild(emptyStateEl);
+    document.getElementById('results-count').textContent = '';
+    return;
+  }
+
+  // Hide empty state (use stored ref, not getElementById)
+  emptyStateEl.style.display = 'none';
+
+  // Collect all column names preserving order
+  const cols = [];
+  results.forEach(r => Object.keys(r).forEach(k => { if (!cols.includes(k)) cols.push(k); }));
+
+  const table = document.createElement('table');
+  table.className = 'results-table';
+
+  // Header
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>${cols.map(c => `<th class="${c==='_filename'?'col-filename':''}">${esc(c)}</th>`).join('')}</tr>`;
+  table.appendChild(thead);
+
+  // Body (max 2000 rows rendered)
+  const tbody = document.createElement('tbody');
+  const limit = Math.min(results.length, 2000);
+  for (let i = 0; i < limit; i++) {
+    const r = results[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = cols.map(c => {
+      const v = r[c] ?? '';
+      const cls = cellClass(c, v);
+      return `<td class="${cls}" title="${esc(String(v))}">${esc(String(v) || '')}</td>`;
+    }).join('');
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  // Fully replace contents — never innerHTML='' then appendChild
+  // as that can leave stale paint frames in some browsers
+  wrap.replaceChildren(table);
+
+  document.getElementById('results-count').textContent =
+    `${results.length} row${results.length!==1?'s':''} · ${cols.length-2} field${cols.length-3!==0?'s':''}` +
+    `${results.length>2000?' · showing first 2000':''} · run #${runCount} at ${new Date().toLocaleTimeString()}`;}
+
+function cellClass(col, val) {
+  if (col === '_filename') return 'td-filename';
+  if (!val) return 'td-empty';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return 'td-date';
+  if (!isNaN(val) && val !== '') return 'td-num';
+  return '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════
+
+document.getElementById('btn-export-csv').addEventListener('click', () => {
+  if (!results.length) { toast('Run the pipeline first', 'warn'); return; }
+  const cols = [];
+  results.forEach(r => Object.keys(r).forEach(k => { if (!cols.includes(k)) cols.push(k); }));
+  const header = cols.map(csvEsc).join(',');
+  const rows = results.map(r => cols.map(c => csvEsc(r[c]??'')).join(','));
+  download([header, ...rows].join('\n'), 'batchflow_export.csv', 'text/csv');
+  toast('CSV exported', 'ok');
+});
+
+document.getElementById('btn-export-json').addEventListener('click', () => {
+  if (!results.length) { toast('Run the pipeline first', 'warn'); return; }
+  download(JSON.stringify(results, null, 2), 'batchflow_export.json', 'application/json');
+  toast('JSON exported', 'ok');
+});
+
+function csvEsc(v) {
+  const s = String(v??'');
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
+
+function download(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SAVE / LOAD JOBS
+// ═══════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'batchflow_jobs';
+
+function getJobs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveJob(name) {
+  const jobs = getJobs();
+  jobs[name] = { rules: JSON.parse(JSON.stringify(rules)), savedAt: new Date().toISOString() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  renderJobList();
+  toast(`Job "${name}" saved`, 'ok');
+}
+
+function loadJob(name) {
+  const jobs = getJobs();
+  if (!jobs[name]) return;
+  rules = jobs[name].rules.map(r => ({ ...r }));
+  ruleId = Math.max(0, ...rules.map(r => r.id || 0));
+  renderRules(); updateStats();
+  toast(`Job "${name}" loaded`, 'ok');
+}
+
+function deleteJob(name) {
+  const jobs = getJobs();
+  delete jobs[name];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  renderJobList();
+  toast(`Job "${name}" deleted`);
+}
+
+function renderJobList() {
+  const list = document.getElementById('job-list');
+  const noMsg = document.getElementById('no-jobs-msg');
+  const jobs = getJobs();
+  const names = Object.keys(jobs);
+
+  list.innerHTML = '';
+  if (!names.length) { list.appendChild(noMsg); return; }
+
+  names.forEach(name => {
+    const d = document.createElement('div');
+    d.className = 'job-item';
+    d.innerHTML = `<span style="opacity:0.5;font-size:10px">⊞</span>
+      <span class="ji-name" title="${esc(name)}">${esc(name)}</span>
+      <span style="font-size:9px;color:var(--dim)">${jobs[name].rules?.length||0}r</span>
+      <button class="ji-del" data-name="${esc(name)}" title="Delete job">✕</button>`;
+    d.addEventListener('click', e => { if (!e.target.classList.contains('ji-del')) loadJob(name); });
+    d.querySelector('.ji-del').addEventListener('click', e => { e.stopPropagation(); deleteJob(name); });
+    list.appendChild(d);
+  });
+}
+
+// Save modal
+document.getElementById('btn-save-job').addEventListener('click', () => {
+  if (!rules.length) { toast('No rules to save', 'warn'); return; }
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('job-name-input').value = '';
+  setTimeout(() => document.getElementById('job-name-input').focus(), 50);
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('open');
+});
+
+document.getElementById('modal-save').addEventListener('click', () => {
+  const name = document.getElementById('job-name-input').value.trim();
+  if (!name) { toast('Enter a job name', 'warn'); return; }
+  document.getElementById('modal-overlay').classList.remove('open');
+  saveJob(name);
+});
+
+document.getElementById('job-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('modal-save').click();
+  if (e.key === 'Escape') document.getElementById('modal-cancel').click();
+});
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+});
+
+// ═══════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════
+
+function updateStats(errors=0) {
+  document.getElementById('st-files').textContent  = files.length;
+  document.getElementById('st-rules').textContent  = rules.filter(r=>r.outputCol||r.path).length;
+  document.getElementById('st-rows').textContent   = results.length;
+  document.getElementById('st-errors').textContent = errors;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+
+let _tt;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.className='toast', 2800);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT — SEED WITH EXAMPLE JOB
+// ═══════════════════════════════════════════════════════
+
+renderJobList();
+
+// Seed an example "SE Tool XML" job if no jobs exist
+const existingJobs = getJobs();
+if (!Object.keys(existingJobs).length) {
+  rules = [
+    { id:1, outputCol:'doc_date',    path:'DocumentDate',    aliases:'Date,CreationDate,document_date', transform:'date',    defaultVal:'',  regexPat:'' },
+    { id:2, outputCol:'frequency',   path:'FrequencyCode',   aliases:'Frequency,freq_code',             transform:'trim',    defaultVal:'',  regexPat:'' },
+    { id:3, outputCol:'client_env',  path:'ClientEnvironment', aliases:'client_env,Environment',        transform:'upper',   defaultVal:'',  regexPat:'' },
+    { id:4, outputCol:'filename',    path:'',                aliases:'',                                transform:'filename',defaultVal:'',  regexPat:'' },
+  ];
+  ruleId = 4;
+  saveJob('SE Tool XML Extractions');
+  rules = [];
+  ruleId = 0;
+  renderRules();
+  renderJobList();
+}
+</script>
+</body>
+</html>

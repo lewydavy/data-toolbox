@@ -10,13 +10,11 @@
         
         body { background-color: #020203; color: #fafafa; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
-        /* The Central Core Visual */
         #toolbox-core {
             transform-origin: center;
             transition: transform 0.3s ease, filter 0.3s ease;
         }
 
-        /* Tool Cards */
         .tool-card {
             background: rgba(24, 24, 27, 0.6);
             backdrop-filter: blur(8px);
@@ -25,7 +23,6 @@
             position: relative;
         }
 
-        /* Hover States on Active Tools */
         .tool-card:not(.coming-soon):hover {
             border-color: #3b82f6;
             transform: translateY(-5px);
@@ -33,7 +30,6 @@
             background: rgba(24, 24, 27, 0.9);
         }
 
-        /* Circuit Line Effect */
         .tool-card::before {
             content: '';
             position: absolute;
@@ -50,25 +46,30 @@
             opacity: 1;
         }
         
-        /* Pulse the core visual when a tool is hovered */
         .tools-container.hover-glow #toolbox-core {
             filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.4));
             transform: scale(1.05);
         }
 
-        /* Placeholders */
-        .coming-soon { opacity: 0.3; border-style: dashed; cursor: not-allowed;}
-        .coming-soon:hover { background: transparent; transform: none; box-shadow: none;}
+        .coming-soon { opacity: 0.3; border-style: dashed; cursor: not-allowed; }
+        .coming-soon:hover { background: transparent; transform: none; box-shadow: none; }
+
+        .tool-badge {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 99px;
+        }
     </style>
 </head>
 <body class="p-8 md:p-16">
     <div class="max-w-6xl mx-auto">
         
         <header class="mb-20 text-center flex flex-col items-center">
-            
             <div class="relative mb-6 mt-4">
                 <div class="absolute -inset-10 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
-                
                 <div id="toolbox-core" class="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
                     <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
                         <defs>
@@ -111,39 +112,78 @@
         <div id="tools-section" class="tools-container relative mt-16">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 
+                <!-- SchemaViz -->
                 <a href="schema-viz/index.html" class="tool-card active-tool group p-8 rounded-2xl block">
-                    <div class="w-12 h-12 bg-blue-950 border border-blue-700 rounded-xl flex items-center justify-center mb-6 text-blue-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M21 9H3"/><path d="M21 15H3"/><path d="M12 3v18"/></svg>
+                    <div class="flex items-start justify-between mb-6">
+                        <div class="w-12 h-12 bg-blue-950 border border-blue-700 rounded-xl flex items-center justify-center text-blue-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M21 9H3"/><path d="M21 15H3"/><path d="M12 3v18"/></svg>
+                        </div>
+                        <span class="tool-badge bg-blue-950 text-blue-400 border border-blue-800">SQL</span>
                     </div>
                     <h3 class="text-2xl font-bold mb-3 text-white tracking-tight group-hover:text-blue-400 transition-colors">SchemaViz</h3>
-                    <p class="text-zinc-400 text-base leading-relaxed mb-6">Instantly convert SQL CREATE TABLE statements into interactive ER diagrams entirely in your browser.</p>
+                    <p class="text-zinc-400 text-base leading-relaxed mb-6">Paste SQL <code class="text-zinc-300 bg-zinc-800 px-1 rounded text-sm">CREATE TABLE</code> statements and get an interactive ER diagram with FK relationships, drag, zoom, and 5 layout presets.</p>
                     <span class="inline-flex items-center text-sm font-semibold text-blue-400 tracking-wide uppercase">
-                        Launch Utility <span class="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                        Launch Tool <span class="ml-2 transition-transform group-hover:translate-x-1">→</span>
                     </span>
                 </a>
 
+                <!-- BatchFlow -->
+                <a href="batch-flow/index.html" class="tool-card active-tool group p-8 rounded-2xl block">
+                    <div class="flex items-start justify-between mb-6">
+                        <div class="w-12 h-12 bg-amber-950 border border-amber-700 rounded-xl flex items-center justify-center text-amber-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+                        </div>
+                        <span class="tool-badge bg-amber-950 text-amber-400 border border-amber-800">ETL</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3 text-white tracking-tight group-hover:text-blue-400 transition-colors">BatchFlow</h3>
+                    <p class="text-zinc-400 text-base leading-relaxed mb-6">Define field mapping rules once, run against any batch of XML, JSON, CSV, or text files. Date normalisation, transforms, aliases, and saved jobs — all local, no uploads.</p>
+                    <span class="inline-flex items-center text-sm font-semibold text-amber-400 tracking-wide uppercase">
+                        Launch Tool <span class="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                    </span>
+                </a>
+
+                <!-- Coming Soon: CSV Explorer -->
+                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
+                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"/><path d="M3 11h18v2H3z"/><path d="M3 17h18v4H3z"/></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">CSV Explorer</h3>
+                    <p class="text-zinc-600 text-sm">Stats, distributions, nulls, and charts from any CSV.</p>
+                </div>
+
+                <!-- Coming Soon: Commit Message Generator -->
+                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
+                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">Commit Message Generator</h3>
+                    <p class="text-zinc-600 text-sm">Paste a diff, get a clean conventional commit.</p>
+                </div>
+
+                <!-- Coming Soon: ADR Generator -->
+                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
+                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">ADR Generator</h3>
+                    <p class="text-zinc-600 text-sm">Fill a form, get a properly formatted Architecture Decision Record.</p>
+                </div>
+
+                <!-- Coming Soon: JSON Formatter -->
                 <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
                     <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
                     </div>
                     <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">JSON Formatter</h3>
-                    <p class="text-zinc-600 text-sm">Validating, Tree View, Minifying.</p>
-                </div>
-
-                <div class="tool-card coming-soon p-8 rounded-2xl flex flex-col justify-center text-center">
-                    <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 mx-auto text-zinc-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
-                    </div>
-                    <h3 class="text-xl font-semibold mb-2 text-zinc-300 italic">CSV Converter</h3>
-                    <p class="text-zinc-600 text-sm">Instant CSV ⇋ JSON ⇋ SQL Inserts.</p>
+                    <p class="text-zinc-600 text-sm">Validate, pretty-print, minify, and tree-view JSON.</p>
                 </div>
 
             </div>
         </div>
 
         <footer class="mt-28 pt-10 border-t border-zinc-900 text-zinc-600 text-sm flex justify-between items-center">
-            <p>© 2024 Data Toolbox — Browser-based Engineering Utilities.</p>
-            <a href="https://github.com/your-username/your-repo" class="hover:text-blue-500 transition-colors">Source Code</a>
+            <p>© 2025 Data Toolbox — Browser-based Engineering Utilities.</p>
+            <a href="https://github.com/lewydavy/data-toolbox" class="hover:text-blue-500 transition-colors">Source on GitHub →</a>
         </footer>
     </div>
 
@@ -152,12 +192,8 @@
         const activeTools = document.querySelectorAll('.active-tool');
 
         activeTools.forEach(tool => {
-            tool.addEventListener('mouseover', () => {
-                toolsSection.classList.add('hover-glow');
-            });
-            tool.addEventListener('mouseout', () => {
-                toolsSection.classList.remove('hover-glow');
-            });
+            tool.addEventListener('mouseover', () => toolsSection.classList.add('hover-glow'));
+            tool.addEventListener('mouseout',  () => toolsSection.classList.remove('hover-glow'));
         });
     </script>
 </body>
